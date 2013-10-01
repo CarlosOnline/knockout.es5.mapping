@@ -27,7 +27,8 @@ var Knockout;
                     return;
                 if (name == null)
                     name = this.name(source);
-                console.log(indent, "track: " + name + "--------------------------------");
+
+                //console.log(indent, "track: " + name + "--------------------------------");
                 indent += "   ";
                 var keys = [];
                 var computed = [];
@@ -46,13 +47,13 @@ var Knockout;
                         case "string":
                         case "number":
                         case "boolean":
-                            console.log(indent, name + "." + key, type);
+                            //console.log(indent, name + "." + key, type);
                             keys.push(key);
                             break;
 
                         case "function":
                             if (this.isComputed(value)) {
-                                console.log(indent, "f> " + name + "." + key, type);
+                                //console.log(indent, "f> " + name + "." + key, type);
                                 computed.push({
                                     name: key,
                                     fn: value
@@ -61,20 +62,24 @@ var Knockout;
                             break;
 
                         case "object":
+                            if (this.isProperty(value)) {
+                                console.log(indent, "x> " + name + "." + key, type, this.name(value));
+                                continue;
+                            }
+
                             if (value == null || this.isMapped(value) || !this.isTrackable(value)) {
                                 // track the variable as a pointer to underlying data
-                                console.log(indent, "p> " + name + "." + key, type, this.name(value));
+                                //console.log(indent, "p> " + name + "." + key, type, this.name(value));
                                 keys.push(key);
                                 continue;
                             }
 
                             // nested tracking
-                            console.log(indent, "o> " + name + "." + key, type, this.name(value));
+                            //console.log(indent, "o> " + name + "." + key, type, this.name(value));
                             this.track(value, key, indent += "   ");
                             break;
 
                         default:
-                            console.log(indent, "unknown " + name + "." + key, type);
                             break;
                     }
                 }
@@ -83,7 +88,7 @@ var Knockout;
                     try  {
                         ko.track(source, keys);
                     } catch (ex) {
-                        console.log(key, value);
+                        //console.log(key, value);
                     }
                 }
 
@@ -134,6 +139,10 @@ var Knockout;
                 return (value != null && value["__ko_es5_computed__"] === true);
             };
 
+            Track.prototype.isProperty = function (value) {
+                return (value != null && value["__ko_es5_property___"] === true);
+            };
+
             Track.prototype.makeComputed = function (container, name, fn) {
                 var nameOverride = fn["__ko_es5_computed_name__"];
                 if (nameOverride !== undefined && nameOverride !== "") {
@@ -142,13 +151,13 @@ var Knockout;
                 }
 
                 if (name === undefined || name == "") {
-                    console.log("Error. Function missing name", fn);
+                    //console.log("Error. Function missing name", fn);
                     return;
                 }
                 try  {
                     ko.defineProperty(container, name, fn);
                 } catch (ex) {
-                    console.log(name, ex);
+                    //console.log(name, ex);
                 }
                 delete fn["__ko_es5_computed__"];
             };
@@ -171,14 +180,30 @@ var Knockout;
             return fn;
         }
         mapping.computed = computed;
+
+        function property(root, field, getCallback, setCallback) {
+            return Object.defineProperty(root, field, {
+                get: getCallback || function () {
+                    //throw Error("property get not implemented");
+                },
+                set: setCallback || function (value) {
+                    //throw Error("property set not implemented");
+                    //return <T> null;
+                },
+                __ko_es5_property___: true
+            });
+        }
+        mapping.property = property;
     })(Knockout.mapping || (Knockout.mapping = {}));
     var mapping = Knockout.mapping;
 
-    if (ko.es5 === undefined || ko.es5.mapping === undefined) {
-        ko.es5.mapping = {
-            computed: Knockout.mapping.computed,
-            track: Knockout.mapping.track,
-            dirtyFlag: null
+    if (ko.es5 == undefined) {
+        ko.es5 = {
+            mapping: {
+                computed: Knockout.mapping.computed,
+                property: Knockout.mapping.property,
+                track: Knockout.mapping.track
+            }
         };
     }
 })(Knockout || (Knockout = {}));
