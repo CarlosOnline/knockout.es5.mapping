@@ -1,11 +1,15 @@
-knockout.es5.mapping: Solves the problem of ko.track not traversing into nested objects.
+knockout.es5.mapping
+------------------------------------------
+Solves the problem of ko.track not traversing into nested objects.
 
 Examples:
 
 // Javascript example
 
 var Basket = (function () {
+
     function Basket(viewModel) {
+    
         var _this = this;
         this.data = {
             id: 0,
@@ -26,8 +30,9 @@ var Basket = (function () {
 })();
 
 // TypeScript example
-// TypeScript example
+
 class Basket {
+
     data = {
         id: 0,
         name: "data"
