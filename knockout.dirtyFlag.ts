@@ -1,7 +1,7 @@
 /// <reference path="references.ts
 
 interface KnockoutStatic {
-    dirtyFlag: (data: any, initiallyDirty: boolean) => Knockout.DirtyFlag;
+    dirtyFlag: (data: any, initiallyDirty?: boolean) => Knockout.DirtyFlag;
 }
 
 interface IKnockoutDirtyFlag {
@@ -22,10 +22,11 @@ module Knockout {
         }
 
         // Constructor
-        constructor(data: any, dirty: boolean) {
+        constructor(data: any, initiallyDirty?: boolean) {
+            initiallyDirty = initiallyDirty || false;
             this.data = data;
             this.initialState = ko.observable(ko.toJSON(data));
-            this.isInitiallyDirty = ko.observable(dirty);
+            this.isInitiallyDirty = ko.observable(initiallyDirty);
             this.isDirty = ko.computed({
                 owner: this,
                 read: () => {
@@ -33,16 +34,13 @@ module Knockout {
                 }
             });
         }
-
     }
 
-    export function dirtyFlag(data: any, dirty: boolean) {
+    export function dirtyFlag(data: any, dirty?: boolean) {
         return new DirtyFlag(data, dirty);
     }
 
     if (ko.dirtyFlag === undefined) {
         ko.dirtyFlag = dirtyFlag;
-    } 
+    }
 }
-
-
