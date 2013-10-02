@@ -13,10 +13,10 @@ var Knockout;
         }
 
         var Track = (function () {
-            function Track(rootObject) {
-                this.rootObject = rootObject;
+            function Track(root) {
+                this.root = root;
                 this.mapped = [];
-                this.track(rootObject);
+                this.track(root);
                 //this.clearAllMapped();
             }
             Track.prototype.track = function (source, name, indent) {
@@ -156,7 +156,11 @@ var Knockout;
                     return;
                 }
                 try  {
-                    ko.defineProperty(container, name, fn);
+                    var rootThis = this.root;
+                    var rootedFn = function () {
+                        return fn.bind(rootThis)();
+                    };
+                    ko.defineProperty(container, name, rootedFn);
                 } catch (ex) {
                     //console.log(name, ex);
                 }

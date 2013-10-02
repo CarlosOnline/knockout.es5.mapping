@@ -23,8 +23,8 @@ module Knockout {
         export class Track<T> {
             mapped = [];
 
-            constructor(private rootObject: any) {
-                this.track(rootObject);
+            constructor(private root: any) {
+                this.track(root);
                 //this.clearAllMapped();
             }
 
@@ -164,7 +164,11 @@ module Knockout {
                     return;
                 }
                 try {
-                    ko.defineProperty(container, name, fn);
+                    var rootThis = this.root;
+                    var rootedFn = function () {
+                        return fn.bind(rootThis)();
+                    }
+                    ko.defineProperty(container, name, rootedFn);
                 } catch (ex) {
                     //console.log(name, ex);
                 }
