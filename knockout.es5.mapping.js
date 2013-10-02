@@ -63,6 +63,7 @@ var Knockout;
 
                         case "object":
                             if (this.isProperty(value)) {
+                                this.makeProperty(source, key, value);
                                 console.log(indent, "x> " + name + "." + key, type, this.name(value));
                                 continue;
                             }
@@ -161,11 +162,32 @@ var Knockout;
                 }
                 delete fn["__ko_es5_computed__"];
             };
+
+            Track.prototype.makeProperty = function (container, name, value) {
+                var nameOverride = value["__ko_es5_computed_name__"];
+                if (nameOverride !== undefined && nameOverride !== "") {
+                    name = nameOverride;
+                    delete value["__ko_es5_computed_name__"];
+                }
+
+                if (name === undefined || name == "") {
+                    //console.log("Error. Function missing name", fn);
+                    return;
+                }
+                try  {
+                    var prop = Object.defineProperty(container, name, value);
+                    container[name] = prop;
+                } catch (ex) {
+                    //console.log(name, ex);
+                }
+                delete value["__ko_es5_property__"];
+            };
             return Track;
         })();
         mapping.Track = Track;
 
-        function track(root) {
+        function track(root, name, fields) {
+            // TODO: handle name & fields
             new Track(root);
             return root;
         }
@@ -181,8 +203,8 @@ var Knockout;
         }
         mapping.computed = computed;
 
-        function property(root, field, getCallback, setCallback) {
-            return Object.defineProperty(root, field, {
+        function property(getCallback, setCallback) {
+            return {
                 get: getCallback || function () {
                     //throw Error("property get not implemented");
                 },
@@ -191,7 +213,7 @@ var Knockout;
                     //return <T> null;
                 },
                 __ko_es5_property___: true
-            });
+            };
         }
         mapping.property = property;
     })(Knockout.mapping || (Knockout.mapping = {}));

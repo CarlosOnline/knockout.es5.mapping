@@ -4,8 +4,8 @@ interface KnockoutStatic {
     es5: {
         mapping: {
             computed<T>(fn: Function, name?: string): T;
-            property<T>(root: any, field: string, getCallback?: () => T, setCallback?: (value: T) => void): T;
-            track<T>(root: T, name?: string): T;
+            property<T>(getCallback?: () => T, setCallback?: (value: T) => void): T;
+            track<T>(root: T, name?: string, fields?: Array<string>): T;
         }
     };
 }
@@ -69,6 +69,7 @@ module Knockout {
 
                         case "object":
                             if (this.isProperty(value)) {
+                                this.makeProperty(source, key, value);
                                 console.log(indent, "x> " + name + "." + key, type, this.name(value));
                                 continue;
                             }
@@ -169,9 +170,30 @@ module Knockout {
                 }
                 delete fn["__ko_es5_computed__"];
             }
+
+            private makeProperty(container: any, name: string, value: any) {
+                var nameOverride = value["__ko_es5_computed_name__"];
+                if (nameOverride !== undefined && nameOverride !== "") {
+                    name = nameOverride;
+                    delete value["__ko_es5_computed_name__"];
+                }
+
+                if (name === undefined || name == "") {
+                    //console.log("Error. Function missing name", fn);
+                    return;
+                }
+                try {
+                    var prop = Object.defineProperty(container, name, value);
+                    container[name] = prop;
+                } catch (ex) {
+                    //console.log(name, ex);
+                }
+                delete value["__ko_es5_property__"];
+            }
         }
 
-        export function track(root: any) {
+        export function track(root: any, name?: string, fields?: Array<string>) {
+            // TODO: handle name & fields
             new Track(root);
             return root;
         }
@@ -184,8 +206,8 @@ module Knockout {
             return fn;
         }
 
-        export function property<T>(root: any, field: string, getCallback?: () => T, setCallback?: (value: T) => void) {
-            return <T> Object.defineProperty(root, field, {
+        export function property<T>(getCallback?: () => T, setCallback?: (value: T) => void) {
+            return {
                 get: getCallback || function () {
                     //throw Error("property get not implemented");
                 },
@@ -194,7 +216,7 @@ module Knockout {
                     //return <T> null;
                 },
                 __ko_es5_property___: true,
-            });
+            };
         }
     }
 
