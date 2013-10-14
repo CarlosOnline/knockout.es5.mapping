@@ -1,4 +1,4 @@
-/// <reference path="references.ts
+/// <reference path="references.ts" />
 
 interface KnockoutStatic {
     dirtyFlag: (data: any, initiallyDirty?: boolean) => Knockout.DirtyFlag;
