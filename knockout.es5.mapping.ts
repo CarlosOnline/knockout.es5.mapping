@@ -1,11 +1,20 @@
-/// <reference path="references.ts" />
+/// <reference path="references.ts
+
+module Knockout.es5.mapping {
+    export class TrackOptions {
+        name = "";
+        fields: Array<string> = [];
+        referenceFields: Array<string> = [];
+    }
+}
 
 interface KnockoutStatic {
     es5: {
         mapping: {
             computed<T>(fn: Function, name?: string): T;
             property<T>(getCallback?: () => T, setCallback?: (value: T) => void): T;
-            track<T>(root: T, name?: string, fields?: Array<string>): T;
+            track<T>(root: T, name?: string, fields?: Array<string>, referenceFields?: Array<string>): T;
+            trackOptions<T>(root: T, options: Knockout.es5.mapping.TrackOptions): T;
         }
     };
 }
@@ -23,12 +32,12 @@ module Knockout {
         export class Track<T> {
             mapped = [];
 
-            constructor(private root: any) {
-                this.track(root);
-                //this.clearAllMapped();
+            constructor(private root: any, name: string, fields: Array<string> = [], referenceFields: Array<string> = []) {
+                this.track(root, name, "", fields, referenceFields);
+                this.clearAllMapped();
             }
 
-            track<T>(source: T, name: string = null, indent= "") {
+            track<T>(source: T, name: string = null, indent= "", fields: Array<string> = [], referenceFields: Array<string> = []) {
                 if (source == null || this.isMapped(source))
                     return;
                 if (name == null)
@@ -42,6 +51,20 @@ module Knockout {
                 for (var key in source) {
                     if (!this.isTrackableField(key)) {
                         //console.log(indent, "skipping: " + name + "." + key, type);
+                        continue;
+                    }
+
+                    // automatically add referenceFields - no traversal
+                    if (-1 != referenceFields.indexOf(key)) {
+                        keys.push(key);
+                        continue;
+                    }
+
+                    // only do the specified fields if specified
+                    if (fields.length > 0) {
+                        if (-1 != fields.indexOf(key)) {
+                            keys.push(key);
+                        }
                         continue;
                     }
 
@@ -70,7 +93,7 @@ module Knockout {
                         case "object":
                             if (this.isProperty(value)) {
                                 this.makeProperty(source, key, value);
-                                console.log(indent, "x> " + name + "." + key, type, this.name(value));
+                                //console.log(indent, "x> " + name + "." + key, type, this.name(value));
                                 continue;
                             }
 
@@ -141,7 +164,7 @@ module Knockout {
                 this.mapped.forEach((value) => {
                     delete value["__tracked__"];
                 });
-                this.mapped.unshift();
+                this.mapped = [];
             }
 
             private isComputed(value: Function) {
@@ -160,15 +183,16 @@ module Knockout {
                 }
 
                 if (name === undefined || name == "") {
-                    //console.log("Error. Function missing name", fn);
+                    console.log("Error. Function missing name", fn);
                     return;
                 }
                 try {
-                    var rootThis = this.root;
-                    var rootedFn = function () {
-                        return fn.bind(rootThis)();
+                    var callback = fn;
+                    if (container !== this.root) {
+                        var rootThis = this.root;
+                        callback = function () { return fn.bind(rootThis)(); };
                     }
-                    ko.defineProperty(container, name, rootedFn);
+                    ko.defineProperty(container, name, callback);
                 } catch (ex) {
                     //console.log(name, ex);
                 }
@@ -183,12 +207,19 @@ module Knockout {
                 }
 
                 if (name === undefined || name == "") {
-                    //console.log("Error. Function missing name", fn);
+                    console.log("Error. Function missing name", value);
                     return;
                 }
                 try {
-                    var prop = Object.defineProperty(container, name, value);
-                    container[name] = prop;
+                    // TODO: Use this override
+                    /*
+                    var callback = fn;
+                    if (container !== this.root) {
+                        var rootThis = this.root;
+                        callback = function () { return fn.bind(rootThis)(); };
+                    }
+                    */
+                    Object.defineProperty(container, name, value);
                 } catch (ex) {
                     //console.log(name, ex);
                 }
@@ -196,9 +227,14 @@ module Knockout {
             }
         }
 
-        export function track(root: any, name?: string, fields?: Array<string>) {
-            // TODO: handle name & fields
-            new Track(root);
+        export function track(root: any, name?: string, fields?: Array<string>, referenceFields?: Array<string>) {
+            new Track(root, name, fields, referenceFields);
+            return root;
+        }
+
+        export function trackOptions(root: any, options: Knockout.es5.mapping.TrackOptions) {
+            options = options || new Knockout.es5.mapping.TrackOptions();
+            new Track(root, options.name, options.fields, options.referenceFields);
             return root;
         }
 
@@ -230,6 +266,7 @@ module Knockout {
                 computed: Knockout.mapping.computed,
                 property: Knockout.mapping.property,
                 track: Knockout.mapping.track,
+                trackOptions: Knockout.mapping.trackOptions,
             },
         };
     }
