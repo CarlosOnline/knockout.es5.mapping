@@ -1,4 +1,23 @@
-/// <reference path="references.ts
+var Knockout;
+(function (Knockout) {
+    (function (es5) {
+        /// <reference path="references.ts
+        (function (mapping) {
+            var TrackOptions = (function () {
+                function TrackOptions() {
+                    this.name = "";
+                    this.fields = [];
+                    this.referenceFields = [];
+                }
+                return TrackOptions;
+            })();
+            mapping.TrackOptions = TrackOptions;
+        })(es5.mapping || (es5.mapping = {}));
+        var mapping = es5.mapping;
+    })(Knockout.es5 || (Knockout.es5 = {}));
+    var es5 = Knockout.es5;
+})(Knockout || (Knockout = {}));
+
 var Knockout;
 (function (Knockout) {
     (function (mapping) {
@@ -13,15 +32,19 @@ var Knockout;
         }
 
         var Track = (function () {
-            function Track(root) {
+            function Track(root, name, fields, referenceFields) {
+                if (typeof fields === "undefined") { fields = []; }
+                if (typeof referenceFields === "undefined") { referenceFields = []; }
                 this.root = root;
                 this.mapped = [];
-                this.track(root);
-                //this.clearAllMapped();
+                this.track(root, name, "", fields, referenceFields);
+                this.clearAllMapped();
             }
-            Track.prototype.track = function (source, name, indent) {
+            Track.prototype.track = function (source, name, indent, fields, referenceFields) {
                 if (typeof name === "undefined") { name = null; }
                 if (typeof indent === "undefined") { indent = ""; }
+                if (typeof fields === "undefined") { fields = []; }
+                if (typeof referenceFields === "undefined") { referenceFields = []; }
                 var _this = this;
                 if (source == null || this.isMapped(source))
                     return;
@@ -36,6 +59,18 @@ var Knockout;
 
                 for (var key in source) {
                     if (!this.isTrackableField(key)) {
+                        continue;
+                    }
+
+                    if (-1 != referenceFields.indexOf(key)) {
+                        keys.push(key);
+                        continue;
+                    }
+
+                    if (fields.length > 0) {
+                        if (-1 != fields.indexOf(key)) {
+                            keys.push(key);
+                        }
                         continue;
                     }
 
@@ -64,11 +99,11 @@ var Knockout;
                         case "object":
                             if (this.isProperty(value)) {
                                 this.makeProperty(source, key, value);
-                                console.log(indent, "x> " + name + "." + key, type, this.name(value));
+
                                 continue;
                             }
 
-                            if (value == null || this.isMapped(value) || !this.isTrackable(value)) {
+                            if (value == null || this.isMapped(value) || !isTrackableObject(value)) {
                                 // track the variable as a pointer to underlying data
                                 //console.log(indent, "p> " + name + "." + key, type, this.name(value));
                                 keys.push(key);
@@ -89,7 +124,7 @@ var Knockout;
                     try  {
                         ko.track(source, keys);
                     } catch (ex) {
-                        //console.log(key, value);
+                        console.log("ko.track ex", key, value);
                     }
                 }
 
@@ -108,10 +143,13 @@ var Knockout;
             };
 
             Track.prototype.isTrackable = function (value) {
-                if (value == null || value.__proto__ === undefined)
+                if (value == null)
                     return true;
-                var xtor = value.__proto__.constructor;
-                return xtor.name === "Object";
+                var proto = Object.getPrototypeOf(value);
+                if (proto == null || proto.constructor == undefined)
+                    return false;
+                var xtor = proto.constructor;
+                return xtor.name === undefined || xtor.name === "Object";
             };
 
             Track.prototype.isTrackableField = function (key) {
@@ -133,7 +171,7 @@ var Knockout;
                 this.mapped.forEach(function (value) {
                     delete value["__tracked__"];
                 });
-                this.mapped.unshift();
+                this.mapped = [];
             };
 
             Track.prototype.isComputed = function (value) {
@@ -152,15 +190,18 @@ var Knockout;
                 }
 
                 if (name === undefined || name == "") {
-                    //console.log("Error. Function missing name", fn);
+                    console.log("Error. Function missing name", fn);
                     return;
                 }
                 try  {
-                    var rootThis = this.root;
-                    var rootedFn = function () {
-                        return fn.bind(rootThis)();
-                    };
-                    ko.defineProperty(container, name, rootedFn);
+                    var callback = fn;
+                    if (container !== this.root) {
+                        var rootThis = this.root;
+                        callback = function () {
+                            return fn.bind(rootThis)();
+                        };
+                    }
+                    ko.defineProperty(container, name, callback);
                 } catch (ex) {
                     //console.log(name, ex);
                 }
@@ -175,12 +216,19 @@ var Knockout;
                 }
 
                 if (name === undefined || name == "") {
-                    //console.log("Error. Function missing name", fn);
+                    console.log("Error. Function missing name", value);
                     return;
                 }
                 try  {
-                    var prop = Object.defineProperty(container, name, value);
-                    container[name] = prop;
+                    // TODO: Use this override
+                    /*
+                    var callback = fn;
+                    if (container !== this.root) {
+                    var rootThis = this.root;
+                    callback = function () { return fn.bind(rootThis)(); };
+                    }
+                    */
+                    Object.defineProperty(container, name, value);
                 } catch (ex) {
                     //console.log(name, ex);
                 }
@@ -190,12 +238,41 @@ var Knockout;
         })();
         mapping.Track = Track;
 
-        function track(root, name, fields) {
-            // TODO: handle name & fields
-            new Track(root);
+        function isTrackableObject(value) {
+            var proto = Object.getPrototypeOf(value);
+            if (proto == null)
+                return true;
+            var xtor = proto.constructor;
+            if (xtor == undefined)
+                return true;
+            if (xtor.name != undefined)
+                return xtor.name == "Object";
+            var func = xtor.toString();
+            return (-1 != func.toString().indexOf("function Object("));
+        }
+        mapping.isTrackableObject = isTrackableObject;
+
+        function track(root, name, fields, referenceFields) {
+            new Track(root, name, fields, referenceFields);
             return root;
         }
         mapping.track = track;
+
+        function trackOptions(root, options) {
+            options = options || new Knockout.es5.mapping.TrackOptions();
+            new Track(root, options.name, options.fields, options.referenceFields);
+            return root;
+        }
+        mapping.trackOptions = trackOptions;
+
+        function getObservable(root, name) {
+            var observable = ko.getObservable(root, name);
+            if (observable != null)
+                return observable;
+            observable = Object.getOwnPropertyDescriptor(root, name).get;
+            return observable || null;
+        }
+        mapping.getObservable = getObservable;
 
         function computed(fn, name) {
             if (typeof name === "undefined") { name = null; }
@@ -228,7 +305,10 @@ var Knockout;
             mapping: {
                 computed: Knockout.mapping.computed,
                 property: Knockout.mapping.property,
-                track: Knockout.mapping.track
+                track: Knockout.mapping.track,
+                trackOptions: Knockout.mapping.trackOptions,
+                getObservable: Knockout.mapping.getObservable,
+                isTrackableObject: Knockout.mapping.isTrackableObject
             }
         };
     }

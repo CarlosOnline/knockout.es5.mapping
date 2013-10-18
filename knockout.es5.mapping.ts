@@ -15,6 +15,8 @@ interface KnockoutStatic {
             property<T>(getCallback?: () => T, setCallback?: (value: T) => void): T;
             track<T>(root: T, name?: string, fields?: Array<string>, referenceFields?: Array<string>): T;
             trackOptions<T>(root: T, options: Knockout.es5.mapping.TrackOptions): T;
+            getObservable<T>(root: any, name: string): KnockoutObservable<T>;
+            isTrackableObject(root: any): boolean;
         }
     };
 }
@@ -98,7 +100,7 @@ module Knockout {
                             }
 
                             //console.log(indent, name + "." + key, type);
-                            if (value == null || this.isMapped(value) || !this.isTrackable(value)) {
+                            if (value == null || this.isMapped(value) || !isTrackableObject(value)) {
                                 // track the variable as a pointer to underlying data
                                 //console.log(indent, "p> " + name + "." + key, type, this.name(value));
                                 keys.push(key);
@@ -120,7 +122,7 @@ module Knockout {
                     try {
                         ko.track(source, keys);
                     } catch (ex) {
-                        //console.log(key, value);
+                        console.log("ko.track ex", key, value);
                     }
                 }
 
@@ -139,10 +141,13 @@ module Knockout {
             }
 
             private isTrackable(value) {
-                if (value == null || value.__proto__ === undefined)
+                if (value == null)
                     return true;
-                var xtor = value.__proto__.constructor;
-                return xtor.name === "Object";
+                var proto = Object.getPrototypeOf(value);
+                if (proto == null || proto.constructor == undefined)
+                    return false;
+                var xtor = proto.constructor;
+                return xtor.name === undefined || xtor.name === "Object";
             }
 
             private isTrackableField(key: string) {
@@ -227,6 +232,19 @@ module Knockout {
             }
         }
 
+        export function isTrackableObject(value: any) {
+            var proto = Object.getPrototypeOf(value);
+            if (proto == null)
+                return true;
+            var xtor = proto.constructor;
+            if (xtor == undefined)
+                return true;
+            if (xtor.name != undefined)
+                return xtor.name == "Object";
+            var func = xtor.toString();
+            return (-1 != func.toString().indexOf("function Object("));
+        }
+
         export function track(root: any, name?: string, fields?: Array<string>, referenceFields?: Array<string>) {
             new Track(root, name, fields, referenceFields);
             return root;
@@ -236,6 +254,14 @@ module Knockout {
             options = options || new Knockout.es5.mapping.TrackOptions();
             new Track(root, options.name, options.fields, options.referenceFields);
             return root;
+        }
+
+        export function getObservable<T>(root: any, name: string) {
+            var observable = <KnockoutObservable<T>> ko.getObservable(root, name);
+            if (observable != null)
+                return observable;
+            observable = <KnockoutObservable<T>> Object.getOwnPropertyDescriptor(root, name).get;
+            return observable || null;
         }
 
         export function computed<T>(fn: () => T, name: string = null) {
@@ -267,6 +293,8 @@ module Knockout {
                 property: Knockout.mapping.property,
                 track: Knockout.mapping.track,
                 trackOptions: Knockout.mapping.trackOptions,
+                getObservable: Knockout.mapping.getObservable,
+                isTrackableObject: Knockout.mapping.isTrackableObject,
             },
         };
     }
